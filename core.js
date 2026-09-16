@@ -19,7 +19,7 @@ var VenueCore = (function () {
     if (!rooms.includes(p.room)) throw new Error('請選擇有效場地。');
     if (!dateValid(p.date) || p.date < (now || today())) throw new Error('請選擇今天或之後的有效日期。');
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(p.start) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(p.end) || p.start >= p.end) throw new Error('結束時間必須晚於開始時間，不接受跨日借用。');
-    if (p.start < '08:00' || p.end > '22:00') throw new Error('初版測試開放時間為 08:00–22:00。');
+    if (p.start < '08:00' || p.end > '21:00') throw new Error('開放時間為 08:00–21:00。');
     if (new Date(p.date + 'T' + p.start + ':00+08:00').getTime() <= Date.now()) throw new Error('開始時間必須晚於現在。');
     ['unit', 'applicant', 'contact', 'email', 'title', 'purpose'].forEach(function (k) { if (typeof p[k] !== 'string' || !p[k].trim() || p[k].length > (k === 'purpose' ? 1000 : 150)) throw new Error('請完整填寫必填欄位，並確認文字未超過長度限制。'); });
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email)) throw new Error('請填寫有效的 Email。');

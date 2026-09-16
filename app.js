@@ -61,10 +61,10 @@
   function renderSlots() {
     const host = $('#schedule'); host.replaceChildren();
     if (!availabilityReady) { host.append(el('p', availabilityMessage, 'empty')); return; }
-    const busy = slots.filter(s => s.room === room).sort((a, b) => a.start.localeCompare(b.start));
+    const busy = slots.filter(s => s.room === room && s.start < '21:00' && s.end > '08:00').map(s => ({ ...s, start: s.start < '08:00' ? '08:00' : s.start, end: s.end > '21:00' ? '21:00' : s.end })).sort((a, b) => a.start.localeCompare(b.start));
     const segments = []; let cursor = '08:00';
     busy.forEach(s => { if (s.start > cursor) segments.push({ start: cursor, end: s.start, status: '可借用' }); segments.push(s); if (s.end > cursor) cursor = s.end; });
-    if (cursor < '22:00') segments.push({ start: cursor, end: '22:00', status: '可借用' });
+    if (cursor < '21:00') segments.push({ start: cursor, end: '21:00', status: '可借用' });
     segments.forEach(s => {
       const free = s.status === '可借用'; let start = s.start;
       if (free && dateInput.value === C.today()) { const now = new Date(); const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(now); const [h, m] = parts.split(':').map(Number); start = [start, minuteTime(h * 60 + m + 1)].sort().pop(); }
