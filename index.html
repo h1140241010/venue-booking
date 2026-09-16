@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="教發中心場地借用：查詢可借時段、線上申請及追蹤審核進度。">
+  <meta name="referrer" content="no-referrer"><title>場地借用｜教發中心</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="styles.css">
+  <script defer src="config.js"></script><script defer src="core.js"></script><script defer src="app.js"></script>
+</head>
+<body>
+<header class="header"><a class="brand" href="#" aria-label="教發中心場地借用首頁"><span class="brand-icon">教</span><span>教學發展中心<small>CENTER FOR TEACHING & LEARNING</small></span></a><span class="edition">場地服務 <span>／</span> V1</span></header>
+<div class="shell">
+  <aside class="sidebar"><div class="nav-caption">場地借用服務</div><nav aria-label="主要導覽"><button class="nav-button selected" data-page="booking"><span>▦</span> 查詢與借用</button><button class="nav-button" data-page="lookup"><span>◎</span> 申請進度查詢</button><button class="nav-button" data-page="guide"><span>≡</span> 借用說明</button></nav><div class="sidebar-bottom"><span class="online-dot"></span> 全程線上申請<br><small>申請後，請等候中心審核。</small></div></aside>
+  <main>
+    <div id="mode-notice" class="notice"></div>
+    <section id="page-booking" class="page">
+      <div class="page-heading"><div><p class="eyebrow">SPACE RESERVATION</p><h1>教發中心場地借用</h1><p class="muted">選擇場地與日期，查看可借時段並提出申請。</p></div><span class="step-tag">01 查詢 <b>→</b> 02 申請 <b>→</b> 03 審核</span></div>
+      <div class="section-title"><h2>選擇場地</h2><span>5 個測試場地</span></div>
+      <div id="rooms" class="room-grid" role="group" aria-label="選擇場地"></div>
+      <div class="workspace">
+        <section class="card availability"><div class="card-heading"><div><p class="eyebrow">AVAILABILITY</p><h2><span id="selected-room">N306</span> 使用時段</h2></div><span class="subtle-tag">臺北時間</span></div>
+          <label class="date-label" for="check-date">借用日期</label><div class="date-controls"><button type="button" id="prev-day" class="icon-button" aria-label="前一天">‹</button><input id="check-date" type="date" required><button type="button" id="next-day" class="icon-button" aria-label="後一天">›</button><button type="button" id="refresh" class="text-button">更新</button></div>
+          <div class="legend"><span><i class="free"></i>可借用</span><span><i class="pending"></i>有人送出申請未審核</span><span><i class="approved"></i>已借出</span></div>
+          <div id="schedule" aria-live="polite"></div>
+          <p class="help">「有人送出申請未審核」表示申請已送出、時段已保留，核准後才可使用。「已借出」表示已核准。兩者均不接受重複申請，相鄰時段可以借用。</p>
+        </section>
+        <section class="card application"><div class="card-heading"><div><p class="eyebrow">NEW REQUEST</p><h2>填寫借用申請</h2></div><span class="muted small">* 必填</span></div>
+          <form id="booking-form"><div class="selection-summary"><span id="form-room">N306</span><span id="form-date"></span></div><div class="form-grid">
+            <label>開始時間 *<input type="time" name="start" min="08:00" max="21:59" value="09:00" required></label><label>結束時間 *<input type="time" name="end" min="08:01" max="22:00" value="10:00" required></label>
+            <label>單位名稱 *<select name="unit" required><option value="" selected disabled>請選擇單位</option></select></label><label>申請人 *<input name="applicant" placeholder="請填寫姓名" maxlength="150" required autocomplete="name"></label>
+            <label>聯絡方式 *<input name="contact" placeholder="電話或分機" maxlength="150" required autocomplete="tel"></label><label>Email *<input name="email" type="email" placeholder="name@example.edu.tw" maxlength="150" required autocomplete="email"></label>
+            <label class="wide">活動名稱 *<input name="title" placeholder="例：教學實踐研究交流會" maxlength="150" required></label>
+            <label class="wide">借用用途 *<textarea name="purpose" rows="2" placeholder="簡述活動內容與使用目的" maxlength="1000" required></textarea></label>
+            <label>預計人數 *<input name="people" type="number" value="20" min="1" step="1" required aria-describedby="people-help"><small id="people-help" class="muted"></small></label>
+            <label class="wide">備註<textarea name="notes" rows="2" placeholder="如有其他需要說明的事項，請填寫於此（選填）" maxlength="500"></textarea></label>
+            <label class="wide" id="software-field" hidden>軟體需求<textarea name="software" rows="2" placeholder="請填寫所需軟體名稱及版本（選填）" maxlength="500" disabled></textarea></label>
+          </div><p class="privacy-note">個人資料僅供中心審核與聯繫，不會顯示於公開時段表。S311 軟體需求是否可提供，以中心確認為準。</p><button type="button" id="read-notice" class="secondary">閱讀借用注意事項</button><p id="notice-hint" class="help">請先閱讀注意事項至最後並確認，系統會自動勾選已讀並開放送出。</p><label class="checkbox"><input type="checkbox" id="consent" required disabled>我已閱讀並同意借用注意事項，了解核准後才可使用場地。</label><div id="submit-message" role="status" class="message"></div><button class="primary submit" type="submit" disabled>送出借用申請 <span>→</span></button></form>
+        </section>
+      </div>
+    </section>
+    <section id="page-lookup" class="page" hidden><div class="page-heading"><div><p class="eyebrow">REQUEST STATUS</p><h1>申請進度查詢</h1><p class="muted">使用送出時取得的申請編號與查詢碼，查看審核結果。</p></div></div><section class="card narrow"><form id="lookup-form"><label>申請編號<input name="id" required placeholder="例：N306-20260925-XXXXXXXX"></label><label>查詢碼<input name="token" required autocomplete="off" placeholder="貼上送出申請時取得的查詢碼"></label><button class="primary" type="submit">查詢申請</button></form><div id="lookup-result" aria-live="polite"></div></section><section id="demo-review" class="card narrow" hidden><h2>模擬管理員審核</h2><p class="muted">僅供此頁示範；正式版於 Google Sheet 審核。</p><div class="review-actions"><select id="demo-status" aria-label="模擬審核狀態"><option>待審核</option><option>核准</option><option>不核准</option><option>取消</option></select><input id="demo-reason" placeholder="不核准原因" aria-label="不核准原因"><button id="demo-apply" class="secondary">套用</button></div><div id="review-message" role="status"></div></section></section>
+    <section id="page-guide" class="page" hidden><div class="page-heading"><div><p class="eyebrow">HOW IT WORKS</p><h1>借用說明</h1></div></div><section class="card narrow prose" id="guide-content"></section></section>
+    <footer>教學發展中心 <span>場地借用系統 V1</span><span>全線上申請・無須列印</span></footer>
+  </main>
+</div>
+<dialog id="receipt"><form method="dialog"><button class="close" aria-label="關閉">×</button></form><span class="receipt-icon">✓</span><p class="eyebrow">REQUEST RECEIVED</p><h2>申請已送出</h2><p class="receipt-reminder"><strong>請記住此申請編號，可查詢審核狀態！</strong><span>查詢時也需要「查詢碼」，請將兩者一起複製保存。</span></p><p>目前狀態：<strong>待審核</strong>。請保存以下查詢資訊。</p><dl><dt>申請編號</dt><dd id="receipt-id"></dd><dt>查詢碼</dt><dd id="receipt-token"></dd></dl><p class="help" id="receipt-note"></p><button type="button" id="copy-receipt" class="secondary">複製查詢資訊</button><button type="button" id="view-receipt" class="primary">查看申請進度</button><p id="copy-message" role="status"></p></dialog>
+<template id="notice-content">
+  <h2>借用注意事項</h2>
+  <ol>
+    <li><strong>先確認課表與可借時段。</strong>請自行查詢教室課表，再查看本系統的借用時段。系統尚未串接正式教室課表，顯示可借用不代表已排除課程占用，最終以教發中心審核結果為準。</li>
+    <li><strong>一門課或一個活動，填寫一筆申請。</strong>不同課程或活動請分別申請；不同日期或時段也請分開填寫。</li>
+    <li><strong>送出後請等候審核。</strong>請保存申請編號與查詢碼，至「申請進度查詢」查看結果。送出申請僅保留時段，不代表已核准；確認核准後才可使用。本系統採全線上申請，無須列印、簽名或繳回紙本確認單，也不適用原紙本三日繳回規定。目前不另寄申請人確認信，請自行查詢。</li>
+    <li><strong>急件請另以電話告知教發中心。</strong>電話告知不代表已核准，仍須完成線上申請並確認審核結果。聯絡電話將於正式上線前公告。</li>
+    <li><strong>所有教室均禁止飲食。</strong>如有違規，自下學期起不再受理其借用申請。</li>
+  </ol>
+  <p><strong>※ 請靜待借用結果確認後再掛課，請勿先掛課，謝謝！</strong></p>
+  <h2>時段與人數</h2>
+  <p>初版測試開放時間為每日 08:00–22:00，不接受跨日或已過去的時段。「有人送出申請未審核」及「已借出」均占用時段，不接受重複申請；不核准或取消會於後端處理完成後釋出。</p>
+  <p>S311 電腦教室最多 56 人；T520 一般教室最多 110 人；T720 一般教室最多 200 人。N306、N312 會議室不設申請人數上限。S311 如需特定軟體，請於「軟體需求」填寫名稱與版本，是否可提供以中心確認為準。</p>
+  <h2>資料與後續聯繫</h2>
+  <p>個人資料、備註及軟體需求僅供中心審核與聯繫，不會顯示於公開時段表。請妥善保管查詢碼；如需修改、取消或遺失查詢碼，請聯繫教發中心。</p>
+</template>
+<dialog id="notice-dialog" aria-labelledby="notice-title" aria-describedby="notice-progress">
+  <h2 id="notice-title">申請前，請閱讀注意事項</h2>
+  <p id="notice-progress" role="status">請向下捲動閱讀至最後，再按「已閱讀，返回申請」，系統會自動勾選已讀。</p>
+  <div id="notice-scroll" class="prose" tabindex="0" role="region" aria-label="借用注意事項全文"></div>
+  <div class="notice-actions"><button type="button" id="notice-cancel" class="secondary">暫不申請</button><button type="button" id="notice-finish" class="primary" disabled>已閱讀，返回申請</button></div>
+</dialog>
+</body></html>
