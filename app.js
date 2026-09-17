@@ -15,8 +15,9 @@
   async function api(action, data = {}) {
     if (demo) {
       await new Promise(r => setTimeout(r, 180));
-      if (action === 'availability') return records.filter(r => r.date === data.date && C.active(r.status)).map(C.publicSlot);
-      if (action === 'searchBookings') return records.filter(r => r.unit === data.unit && r.date === data.date && (!data.room || r.room === data.room)).map(C.publicSlot).sort((a,b) => a.start.localeCompare(b.start));
+      if (action === 'capabilities') return { continuousBooking: true };
+      if (action === 'availability') return records.filter(r => C.active(r.status)).map(r => C.dailySlot(r, data.date)).filter(Boolean);
+      if (action === 'searchBookings') return records.filter(r => r.unit === data.unit && r.date <= data.date && (r.endDate || r.date) >= data.date && (!data.room || r.room === data.room)).map(C.publicSlot).sort((a,b) => a.start.localeCompare(b.start));
       if (action === 'submit') {
         const old = records.find(r => r.token === data.token); if (old) return { id: old.id, status: old.status };
         C.validate(data); if (conflict(data)) throw new Error('這個時段已有人申請，請更新時段表並另選時間。');
@@ -57,15 +58,23 @@
     $('#people-help').textContent = info.capacity === null ? '會議室不設人數上限，請填寫實際人數。' : `${room} 最多容納 ${info.capacity} 人。`;
     $('#software-field').hidden = room !== 'S311';
     $('#booking-form [name=software]').disabled = room !== 'S311';
+    const startDate = $('#booking-form [name=date]'), endDate = $('#booking-form [name=endDate]');
+    const previous = startDate.value;
+    startDate.min = C.today(); startDate.value = dateInput.value; endDate.min = startDate.value;
+    if (!endDate.value || endDate.value === previous || endDate.value < startDate.value) endDate.value = startDate.value;
+    $('#booking-form [name=start]').max = room === 'S311' ? '16:59' : '20:59';
+    $('#booking-form [name=end]').max = C.closing(room);
+    $('#hours-help').textContent = `${room} 每日開放 08:00～${C.closing(room)}。連續借用會保留起訖期間內每天的開放時段。`;
   }
   function minuteTime(n) { return `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`; }
   function renderSlots() {
     const host = $('#schedule'); host.replaceChildren();
     if (!availabilityReady) { host.append(el('p', availabilityMessage, 'empty')); return; }
-    const busy = slots.filter(s => s.room === room && s.start < '21:00' && s.end > '08:00').map(s => ({ ...s, start: s.start < '08:00' ? '08:00' : s.start, end: s.end > '21:00' ? '21:00' : s.end })).sort((a, b) => a.start.localeCompare(b.start));
+    const close = C.closing(room);
+    const busy = slots.filter(s => s.room === room && s.start < close && s.end > '08:00').map(s => ({ ...s, start: s.start < '08:00' ? '08:00' : s.start, end: s.end > close ? close : s.end })).sort((a, b) => a.start.localeCompare(b.start));
     const segments = []; let cursor = '08:00';
     busy.forEach(s => { if (s.start > cursor) segments.push({ start: cursor, end: s.start, status: '可借用' }); segments.push(s); if (s.end > cursor) cursor = s.end; });
-    if (cursor < '21:00') segments.push({ start: cursor, end: '21:00', status: '可借用' });
+    if (cursor < close) segments.push({ start: cursor, end: close, status: '可借用' });
     segments.forEach(s => {
       const free = s.status === '可借用'; let start = s.start;
       if (free && dateInput.value === C.today()) { const now = new Date(); const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(now); const [h, m] = parts.split(':').map(Number); start = [start, minuteTime(h * 60 + m + 1)].sort().pop(); }
@@ -87,6 +96,7 @@
   function shift(days) { const d = new Date(dateInput.value + 'T12:00:00+08:00'); d.setDate(d.getDate() + days); const value = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Taipei' }).format(d); dateInput.value = value < C.today() ? C.today() : value; refresh(); }
   $('#prev-day').onclick = () => shift(-1); $('#next-day').onclick = () => shift(1);
   const form = $('#booking-form');
+  form.elements.date.onchange = () => { dateInput.value = form.elements.date.value; refresh(); };
   let noticeRead = false;
   const noticeDialog = $('#notice-dialog'), noticeScroll = $('#notice-scroll'), noticeFinish = $('#notice-finish');
   $('#guide-content').append($('#notice-content').content.cloneNode(true));
@@ -120,7 +130,11 @@
     if (!form.reportValidity()) return;
     const button = form.querySelector('[type=submit]'), msg = $('#submit-message'); msg.textContent = ''; button.disabled = true;
     try {
-      const data = Object.fromEntries(new FormData(form)); Object.keys(data).forEach(k => data[k] = data[k].trim()); Object.assign(data, { room, date: dateInput.value, software: room === 'S311' ? data.software : '' }); C.validate(data);
+      const data = Object.fromEntries(new FormData(form)); Object.keys(data).forEach(k => data[k] = data[k].trim()); Object.assign(data, { room, software: room === 'S311' ? data.software : '' }); C.validate(data);
+      if (data.endDate !== data.date) {
+        let supported; try { supported = await api('capabilities'); } catch { throw new Error('請等待中心更新跨日借用服務後再送出；目前尚未送出申請。'); }
+        if (!supported.continuousBooking) throw new Error('請等待中心更新跨日借用服務後再送出；目前尚未送出申請。');
+      }
       if (pending && JSON.stringify(pending.data) !== JSON.stringify(data)) throw new Error('上一筆申請尚未確認，請恢復原填寫內容後重試，或保留查詢碼聯繫中心。');
       if (!pending) pending = { data, token: random() };
       const result = await api('submit', { ...pending.data, token: pending.token }); receipt = { ...result, token: pending.token }; pending = null;
@@ -138,7 +152,7 @@
   $('#view-receipt').onclick = () => { $('#receipt').close(); page('lookup'); $('#lookup-form [name=id]').value = receipt.id; $('#lookup-form [name=token]').value = receipt.token; $('#lookup-form').requestSubmit(); };
   function showResult(r) {
     const host = $('#lookup-result'); host.replaceChildren(el('span', r.status, 'status-badge')); const dl = el('dl');
-    [['申請編號', r.id], ['借用場地與時段', `${r.room}｜${r.date} ${r.start}–${r.end}`], ['審核時間', r.reviewedAt || '尚未審核'], ...(r.status === '不核准' ? [['不核准原因', r.reason || '請聯繫教發中心']] : [])].forEach(([k, v]) => dl.append(el('dt', k), el('dd', v)));
+    [['申請編號', r.id], ['借用場地與時段', `${r.room}｜${r.date} ${r.start} ～ ${r.endDate || r.date} ${r.end}`], ['審核時間', r.reviewedAt || '尚未審核'], ...(r.status === '不核准' ? [['不核准原因', r.reason || '請聯繫教發中心']] : [])].forEach(([k, v]) => dl.append(el('dt', k), el('dd', v)));
     host.append(dl); if (r.syncPending) host.append(el('p', '管理員的變更正在處理中，請稍後更新查詢。', 'help'));
     $('#demo-review').hidden = !demo; $('#demo-status').value = r.status;
   }
@@ -153,7 +167,7 @@
     try {
       const results = await api('searchBookings', Object.fromEntries(new FormData(e.target)));
       host.replaceChildren(el('p', results.length ? `找到 ${results.length} 筆申請` : '查無符合條件的申請，請確認申請時填寫的單位、借用日期與場地。', 'help'));
-      results.forEach(r => { const item = el('div', null, 'slot'); item.append(el('span', `${r.room}｜${r.date} ${r.start}–${r.end}`, 'slot-time'), el('span', ({'核准':'已審核','待審核':'未審核','不核准':'已審核','取消':'已取消','未審核':'未審核','已審核':'已審核','已取消':'已取消'})[r.status] || '未審核', 'status-badge')); host.append(item); if (r.syncPending) host.append(el('p', '管理員的變更正在同步，請稍後重新查詢。', 'help')); });
+      results.forEach(r => { const item = el('div', null, 'slot'); item.append(el('span', `${r.room}｜${r.date} ${r.start} ～ ${r.endDate || r.date} ${r.end}`, 'slot-time'), el('span', ({'核准':'已審核','待審核':'未審核','不核准':'已審核','取消':'已取消','未審核':'未審核','已審核':'已審核','已取消':'已取消'})[r.status] || '未審核', 'status-badge')); host.append(item); if (r.syncPending) host.append(el('p', '管理員的變更正在同步，請稍後重新查詢。', 'help')); });
     } catch (err) { host.replaceChildren(el('p', err.message === '不支援的操作。' ? '單位查詢功能尚待中心更新服務，暫時請使用下方編號查詢。' : err.message, 'message')); }
     finally { button.disabled = false; }
   };

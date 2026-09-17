@@ -5,7 +5,7 @@
   <meta name="description" content="教發中心場地借用：查詢可借時段、線上申請及追蹤審核進度。">
   <meta name="referrer" content="no-referrer"><title>場地借用｜教發中心</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="styles.css">
-  <script defer src="config.js"></script><script defer src="core.js"></script><script defer src="app.js"></script>
+  <script defer src="config.js"></script><script defer src="core.js?v=continuous-1"></script><script defer src="app.js?v=continuous-1"></script>
 </head>
 <body>
 <header class="header"><a class="brand" href="#" aria-label="教發中心場地借用首頁"><span class="brand-icon">教</span><span>教學發展中心<small>CENTER FOR TEACHING & LEARNING</small></span></a><div class="header-contact">聯絡單位：教發中心<br>聯絡分機：工讀生 3034</div></header>
@@ -26,7 +26,7 @@
         </section>
         <section class="card application"><div class="card-heading"><div><p class="eyebrow">NEW REQUEST</p><h2>填寫借用申請</h2></div><span class="muted small">* 必填</span></div>
           <form id="booking-form"><div class="selection-summary"><span id="form-room">N306</span><span id="form-date"></span></div><div class="form-grid">
-            <label>開始時間 *<input type="time" name="start" min="08:00" max="20:59" value="09:00" required></label><label>結束時間 *<input type="time" name="end" min="08:01" max="21:00" value="10:00" required></label>
+            <label>開始日期 *<input type="date" name="date" required></label><label>結束日期 *<input type="date" name="endDate" required></label><p class="wide help" id="hours-help">連續借用會保留起訖期間內每天的開放時段。S311 為 08:00～17:00，其餘場地為 08:00～21:00。</p><label>開始時間 *<input type="time" name="start" min="08:00" max="20:59" value="09:00" required></label><label>結束時間 *<input type="time" name="end" min="08:01" max="21:00" value="10:00" required></label>
             <label>單位名稱 *<select name="unit" required><option value="" selected disabled>請選擇單位</option></select></label><label>申請人 *<input name="applicant" placeholder="請填寫姓名" maxlength="150" required autocomplete="name"></label>
             <label>聯絡方式 *<input name="contact" placeholder="電話或分機" maxlength="150" required autocomplete="tel"></label><label>Email *<input name="email" type="email" placeholder="name@example.edu.tw" maxlength="150" required autocomplete="email"></label>
             <label class="wide">活動名稱 *<input name="title" placeholder="例：教學實踐研究交流會" maxlength="150" required></label>
@@ -48,14 +48,14 @@
   <h2>借用注意事項</h2>
   <ol>
     <li><strong>先確認課表與可借時段。</strong>請自行查詢教室課表，再查看本系統的借用時段。系統尚未串接正式教室課表，顯示可借用不代表已排除課程占用，最終以教發中心審核結果為準。</li>
-    <li><strong>一門課或一個活動，填寫一筆申請。</strong>不同課程或活動請分別申請；不同日期或時段也請分開填寫。</li>
+    <li><strong>一門課或一個活動，填寫一筆申請。</strong>不同課程或活動請分別申請；連續多日借用可填寫起訖日期與時間，整段期間共用一筆申請。</li>
     <li><strong>送出後請等候審核。</strong>請保存申請編號與查詢碼，至「申請進度查詢」查看結果。送出申請僅保留時段，不代表已核准；確認核准後才可使用。本系統採全線上申請，無須列印、簽名或繳回紙本確認單，也不適用原紙本三日繳回規定。目前不另寄申請人確認信，請自行查詢。</li>
     <li><strong>急件請另以電話告知教發中心。</strong>電話告知不代表已核准，仍須完成線上申請並確認審核結果。聯絡電話將於正式上線前公告。</li>
     <li><strong>所有教室均禁止飲食。</strong>如有違規，自下學期起不再受理其借用申請。</li>
   </ol>
   <p><strong>※ 請靜待借用結果確認後再掛課，請勿先掛課，謝謝！</strong></p>
   <h2>時段與人數</h2>
-  <p>開放時間為每日 08:00–21:00，不接受跨日或已過去的時段。「有人送出申請未審核」及「已借出」均占用時段，不接受重複申請；不核准或取消會於後端處理完成後釋出。</p>
+  <p>S311 開放時間為每日 08:00–17:00，其餘場地為 08:00–21:00。可連續多日借用，期間內每天的開放時段都會保留；不接受已過去的開始時間。「有人送出申請未審核」及「已借出」均占用時段，不接受重複申請；不核准或取消會於後端處理完成後釋出。</p>
   <p>S311 電腦教室最多 56 人；T520 一般教室最多 110 人；T720 一般教室最多 200 人。N306、N312 會議室不設申請人數上限。S311 如需特定軟體，請於「軟體需求」填寫名稱與版本，是否可提供以中心確認為準。</p>
   <h2>資料與後續聯繫</h2>
   <p>個人資料、備註及軟體需求僅供中心審核與聯繫，不會顯示於公開時段表。請妥善保管查詢碼；如需修改、取消或遺失查詢碼，請聯繫教發中心。</p>
