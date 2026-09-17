@@ -16,6 +16,7 @@
     if (demo) {
       await new Promise(r => setTimeout(r, 180));
       if (action === 'availability') return records.filter(r => r.date === data.date && C.active(r.status)).map(C.publicSlot);
+      if (action === 'searchBookings') return records.filter(r => r.unit === data.unit && r.date === data.date && (!data.room || r.room === data.room)).map(C.publicSlot).sort((a,b) => a.start.localeCompare(b.start));
       if (action === 'submit') {
         const old = records.find(r => r.token === data.token); if (old) return { id: old.id, status: old.status };
         C.validate(data); if (conflict(data)) throw new Error('這個時段已有人申請，請更新時段表並另選時間。');
@@ -143,6 +144,18 @@
   }
   $('#lookup-form').onsubmit = async e => { e.preventDefault(); const b = e.target.querySelector('button'); b.disabled = true; $('#demo-review').hidden = true; $('#lookup-result').textContent = '查詢中…'; try { const credentials = Object.fromEntries(new FormData(e.target)); Object.keys(credentials).forEach(k => credentials[k] = credentials[k].trim()); const r = await api('lookup', credentials); lookup = credentials; showResult(r); } catch (error) { lookup = null; $('#lookup-result').textContent = error.message; } finally { b.disabled = false; } };
   $('#demo-apply').onclick = async () => { if (!demo || !lookup) return; const r = records.find(x => x.id === lookup.id && x.token === lookup.token), status = $('#demo-status').value, reason = $('#demo-reason').value.trim(); const msg = $('#review-message'); if (status === '不核准' && !reason) { msg.textContent = '請填寫不核准原因。'; return; } if (C.active(status) && conflict(r, r.id)) { msg.textContent = '此時段已有其他申請，無法恢復占用。'; return; } Object.assign(r, { status, reason: status === '不核准' ? reason : '', reviewedAt: status === '待審核' ? '' : new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }) }); msg.textContent = '已套用模擬審核結果。'; showResult(await api('lookup', lookup)); refresh(); };
-  C.units.forEach(unit => { const option = el('option', unit); option.value = unit; $('#booking-form [name=unit]').append(option); });
+  C.units.forEach(unit => { ['#booking-form', '#unit-lookup-form'].forEach(selector => { const option = el('option', unit); option.value = unit; $(selector + ' [name=unit]').append(option); }); });
+  C.rooms.forEach(code => { const option = el('option', `${code}（${C.roomInfo[code].type}）`); option.value = code; $('#unit-lookup-form [name=room]').append(option); });
+  $('#unit-lookup-form [name=date]').value = C.today();
+  $('#unit-lookup-form').onsubmit = async e => {
+    e.preventDefault(); const button = e.target.querySelector('button'), host = $('#unit-lookup-result');
+    button.disabled = true; host.replaceChildren(el('p', '查詢中…', 'help'));
+    try {
+      const results = await api('searchBookings', Object.fromEntries(new FormData(e.target)));
+      host.replaceChildren(el('p', results.length ? `找到 ${results.length} 筆申請` : '查無符合條件的申請，請確認申請時填寫的單位、借用日期與場地。', 'help'));
+      results.forEach(r => { const item = el('div', null, 'slot'); item.append(el('span', `${r.room}｜${r.date} ${r.start}–${r.end}`, 'slot-time'), el('span', ({'核准':'已借出','待審核':'有人送出申請未審核','不核准':'不核准','取消':'取消'})[r.status] || '待審核', 'status-badge')); host.append(item); if (r.syncPending) host.append(el('p', '管理員的變更正在同步，請稍後重新查詢。', 'help')); });
+    } catch (err) { host.replaceChildren(el('p', err.message === '不支援的操作。' ? '單位查詢功能尚待中心更新服務，暫時請使用下方編號查詢。' : err.message, 'message')); }
+    finally { button.disabled = false; }
+  };
   renderSelection(); refresh();
 })();
