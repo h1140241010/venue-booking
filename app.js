@@ -153,7 +153,7 @@
     try {
       const results = await api('searchBookings', Object.fromEntries(new FormData(e.target)));
       host.replaceChildren(el('p', results.length ? `找到 ${results.length} 筆申請` : '查無符合條件的申請，請確認申請時填寫的單位、借用日期與場地。', 'help'));
-      results.forEach(r => { const item = el('div', null, 'slot'); item.append(el('span', `${r.room}｜${r.date} ${r.start}–${r.end}`, 'slot-time'), el('span', ({'核准':'已借出','待審核':'有人送出申請未審核','不核准':'不核准','取消':'取消'})[r.status] || '待審核', 'status-badge')); host.append(item); if (r.syncPending) host.append(el('p', '管理員的變更正在同步，請稍後重新查詢。', 'help')); });
+      results.forEach(r => { const item = el('div', null, 'slot'); item.append(el('span', `${r.room}｜${r.date} ${r.start}–${r.end}`, 'slot-time'), el('span', ({'核准':'已審核','待審核':'未審核','不核准':'已審核','取消':'已取消','未審核':'未審核','已審核':'已審核','已取消':'已取消'})[r.status] || '未審核', 'status-badge')); host.append(item); if (r.syncPending) host.append(el('p', '管理員的變更正在同步，請稍後重新查詢。', 'help')); });
     } catch (err) { host.replaceChildren(el('p', err.message === '不支援的操作。' ? '單位查詢功能尚待中心更新服務，暫時請使用下方編號查詢。' : err.message, 'message')); }
     finally { button.disabled = false; }
   };
