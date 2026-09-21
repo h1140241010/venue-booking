@@ -3,6 +3,7 @@
   const C = VenueCore, cfg = window.VENUE_CONFIG, $ = s => document.querySelector(s);
   const demo = cfg.mode === 'demo';
   let room = 'N306', slots = [], revision = 0, receipt = null, pending = null, lookup = null, availabilityReady = false, availabilityMessage = '正在讀取時段…';
+  let weeklyChecked = '', excludedDates = new Set(), weeklyBasis = '';
   const dateInput = $('#check-date'); dateInput.min = C.today(); dateInput.value = C.today();
   const records = [
     { id: 'SAMPLE1', room: 'N306', date: C.today(), start: '10:00', end: '12:00', status: '核准' },
@@ -15,9 +16,10 @@
   async function api(action, data = {}) {
     if (demo) {
       await new Promise(r => setTimeout(r, 180));
-      if (action === 'capabilities') return { continuousBooking: true };
+      if (action === 'capabilities') return { continuousBooking: true, weeklyBooking: true };
+      if (action === 'previewWeekly') { C.validate(data); return C.dates(data).map(date => ({date,conflict:conflict(C.dailySlot(data,date))})); }
       if (action === 'availability') return records.filter(r => C.active(r.status)).map(r => C.dailySlot(r, data.date)).filter(Boolean);
-      if (action === 'searchBookings') return records.filter(r => r.unit === data.unit && r.date <= data.date && (r.endDate || r.date) >= data.date && (!data.room || r.room === data.room)).map(C.publicSlot).sort((a,b) => a.start.localeCompare(b.start));
+      if (action === 'searchBookings') return records.filter(r => r.unit === data.unit && C.dailySlot(r,data.date) && (!data.room || r.room === data.room)).map(r => C.publicSlot(r.bookingType === 'weekly' ? C.dailySlot(r,data.date) : r)).sort((a,b) => a.start.localeCompare(b.start));
       if (action === 'submit') {
         const old = records.find(r => r.token === data.token); if (old) return { id: old.id, status: old.status };
         C.validate(data); if (conflict(data)) throw new Error('這個時段已有人申請，請更新時段表並另選時間。');
@@ -65,6 +67,9 @@
     $('#booking-form [name=start]').max = room === 'S311' ? '16:59' : '20:59';
     $('#booking-form [name=end]').max = C.closing(room);
     $('#hours-help').textContent = `${room} 每日開放 08:00～${C.closing(room)}。連續借用會保留起訖期間內每天的開放時段。`;
+    $('#weekly-option').disabled = !['S311','T520','T720'].includes(room);
+    if ($('#weekly-option').disabled) $('#booking-form [name=bookingType]').value = 'continuous';
+    renderWeekly();
   }
   function minuteTime(n) { return `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`; }
   function renderSlots() {
@@ -82,7 +87,7 @@
       const row = el('div', null, `slot ${free ? '' : 'busy'} ${s.status === '核准' ? 'approved-slot' : ''} ${past ? 'past' : ''}`);
       row.append(el('span', `${s.start} — ${s.end}`, 'slot-time'));
       const status = el(free && !past ? 'button' : 'span', past ? '已過時段' : free ? '選擇時段 ↗' : s.status === '核准' ? '已借出' : '有人送出申請未審核', 'slot-status');
-      if (free && !past) status.onclick = () => { $('#booking-form [name=start]').value = start; $('#booking-form [name=end]').value = s.end; $('#booking-form [name=start]').focus(); };
+      if (free && !past) status.onclick = () => { $('#booking-form [name=start]').value = start; $('#booking-form [name=end]').value = s.end; renderWeekly(); $('#booking-form [name=start]').focus(); };
       row.append(status); host.append(row);
     });
   }
@@ -96,6 +101,48 @@
   function shift(days) { const d = new Date(dateInput.value + 'T12:00:00+08:00'); d.setDate(d.getDate() + days); const value = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Taipei' }).format(d); dateInput.value = value < C.today() ? C.today() : value; refresh(); }
   $('#prev-day').onclick = () => shift(-1); $('#next-day').onclick = () => shift(1);
   const form = $('#booking-form');
+  function bookingData() {
+    const data = Object.fromEntries(new FormData(form)); Object.keys(data).forEach(k => data[k] = data[k].trim());
+    Object.assign(data, {room, software:room === 'S311' ? data.software : ''});
+    if(data.bookingType === 'weekly') data.excludedDates = [...excludedDates].sort().join(',');
+    return data;
+  }
+  function scheduleKey(data) { return JSON.stringify([data.room,data.bookingType,data.date,data.endDate,data.weekday,data.start,data.end,data.excludedDates]); }
+  function renderWeekly() {
+    const weekly = form.elements.bookingType.value === 'weekly';
+    $('#weekday-field').hidden = $('#weekly-panel').hidden = !weekly; form.elements.weekday.disabled = !weekly;
+    if (!weekly) { weeklyChecked = ''; return; }
+    $('#hours-help').textContent = `${room} 每日開放 08:00～${C.closing(room)}。每週固定只保留選定星期的指定時段，最後一場不晚於結束日期。`;
+    const data = bookingData(), basis = JSON.stringify([room,data.date,data.endDate,data.weekday]);
+    if (basis !== weeklyBasis) { excludedDates.clear(); weeklyBasis = basis; data.excludedDates = ''; }
+    weeklyChecked = ''; $('#weekly-message').textContent = '請填完申請資料後檢查所有日期，再送出。';
+    const host = $('#weekly-dates'); host.replaceChildren();
+    try {
+      const dates = C.dates({...data,excludedDates:''});
+      dates.forEach(date => {
+        const label = el('label',null,'checkbox'), box = el('input'); box.type = 'checkbox'; box.checked = !excludedDates.has(date);
+        const text = el('span',`${date}（${'日一二三四五六'[Number(data.weekday)]}） ${data.start}～${data.end}`); text.dataset.weeklyDate = date;
+        box.onchange = () => { if(box.checked) excludedDates.delete(date); else excludedDates.add(date); weeklyChecked = ''; $('#weekly-message').textContent = '日期已變更，請重新檢查。'; };
+        label.append(box,text); host.append(label);
+      });
+    } catch(e) { host.append(el('p',e.message,'message')); }
+  }
+  form.addEventListener('change', e => { if(['bookingType','weekday','endDate','start','end'].includes(e.target.name)) renderWeekly(); });
+  $('#check-weekly').onclick = async () => {
+    if (!form.reportValidity()) return;
+    const button = $('#check-weekly'); button.disabled = true; weeklyChecked = ''; $('#weekly-message').textContent = '正在檢查每次日期…';
+    try {
+      const data = bookingData(); C.validate(data);
+      const support = await api('capabilities'); if(!support.weeklyBooking) throw new Error('請等待中心更新每週借用服務；目前尚未送出申請。');
+      const result = await api('previewWeekly',data);
+      if(scheduleKey(data) !== scheduleKey(bookingData())) return;
+      result.forEach(r => { const text = document.querySelector(`[data-weekly-date="${r.date}"]`); if(text) text.textContent = `${r.date} ${data.start}～${data.end}｜${r.conflict ? '時段衝突，請取消勾選或調整' : '可申請'}`; });
+      const conflicts = result.filter(r => r.conflict).length;
+      if (!conflicts) weeklyChecked = scheduleKey(data);
+      $('#weekly-message').textContent = conflicts ? `有 ${conflicts} 天衝突，請調整後重新檢查。` : `共 ${result.length} 次，日期檢查完成。送出時仍會再次確認時段。`;
+    } catch(e) { $('#weekly-message').textContent = e.message; }
+    finally { button.disabled = false; }
+  };
   form.elements.date.onchange = () => { dateInput.value = form.elements.date.value; refresh(); };
   let noticeRead = false;
   const noticeDialog = $('#notice-dialog'), noticeScroll = $('#notice-scroll'), noticeFinish = $('#notice-finish');
@@ -130,10 +177,11 @@
     if (!form.reportValidity()) return;
     const button = form.querySelector('[type=submit]'), msg = $('#submit-message'); msg.textContent = ''; button.disabled = true;
     try {
-      const data = Object.fromEntries(new FormData(form)); Object.keys(data).forEach(k => data[k] = data[k].trim()); Object.assign(data, { room, software: room === 'S311' ? data.software : '' }); C.validate(data);
+      const data = bookingData(); C.validate(data);
+      if (data.bookingType === 'weekly' && weeklyChecked !== scheduleKey(data)) throw new Error('請先檢查所有借用日期，排除衝突後再送出。');
       if (data.endDate !== data.date) {
         let supported; try { supported = await api('capabilities'); } catch { throw new Error('請等待中心更新跨日借用服務後再送出；目前尚未送出申請。'); }
-        if (!supported.continuousBooking) throw new Error('請等待中心更新跨日借用服務後再送出；目前尚未送出申請。');
+        if (!supported.continuousBooking || (data.bookingType === 'weekly' && !supported.weeklyBooking)) throw new Error('請等待中心更新借用服務後再送出；目前尚未送出申請。');
       }
       if (pending && JSON.stringify(pending.data) !== JSON.stringify(data)) throw new Error('上一筆申請尚未確認，請恢復原填寫內容後重試，或保留查詢碼聯繫中心。');
       if (!pending) pending = { data, token: random() };
@@ -154,6 +202,7 @@
     const host = $('#lookup-result'); host.replaceChildren(el('span', r.status, 'status-badge')); const dl = el('dl');
     [['申請編號', r.id], ['借用場地與時段', `${r.room}｜${r.date} ${r.start} ～ ${r.endDate || r.date} ${r.end}`], ['審核時間', r.reviewedAt || '尚未審核'], ...(r.status === '不核准' ? [['不核准原因', r.reason || '請聯繫教發中心']] : [])].forEach(([k, v]) => dl.append(el('dt', k), el('dd', v)));
     host.append(dl); if (r.syncPending) host.append(el('p', '管理員的變更正在處理中，請稍後更新查詢。', 'help'));
+    if (r.bookingType === 'weekly') host.append(el('p',`每週固定，共 ${r.occurrenceDates.length} 次，每次 ${r.start}～${r.end}：${r.occurrenceDates.join('、')}`,'help'));
     $('#demo-review').hidden = !demo; $('#demo-status').value = r.status;
   }
   $('#lookup-form').onsubmit = async e => { e.preventDefault(); const b = e.target.querySelector('button'); b.disabled = true; $('#demo-review').hidden = true; $('#lookup-result').textContent = '查詢中…'; try { const credentials = Object.fromEntries(new FormData(e.target)); Object.keys(credentials).forEach(k => credentials[k] = credentials[k].trim()); const r = await api('lookup', credentials); lookup = credentials; showResult(r); } catch (error) { lookup = null; $('#lookup-result').textContent = error.message; } finally { b.disabled = false; } };

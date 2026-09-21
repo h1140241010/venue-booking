@@ -5,7 +5,7 @@
   <meta name="description" content="教發中心場地借用：查詢可借時段、線上申請及追蹤審核進度。">
   <meta name="referrer" content="no-referrer"><title>場地借用｜教發中心</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="styles.css">
-  <script defer src="config.js"></script><script defer src="core.js?v=continuous-1"></script><script defer src="app.js?v=continuous-1"></script>
+  <script defer src="config.js"></script><script defer src="core.js?v=weekly-1"></script><script defer src="app.js?v=weekly-1"></script>
 </head>
 <body>
 <header class="header"><a class="brand" href="#" aria-label="教發中心場地借用首頁"><span class="brand-icon">教</span><span>教學發展中心<small>CENTER FOR TEACHING & LEARNING</small></span></a><div class="header-contact">聯絡單位：教發中心<br>聯絡分機：工讀生 3034</div></header>
@@ -26,6 +26,8 @@
         </section>
         <section class="card application"><div class="card-heading"><div><p class="eyebrow">NEW REQUEST</p><h2>填寫借用申請</h2></div><span class="muted small">* 必填</span></div>
           <form id="booking-form"><div class="selection-summary"><span id="form-room">N306</span><span id="form-date"></span></div><div class="form-grid">
+            <label class="wide">借用方式<select name="bookingType"><option value="continuous">單次／連續多日</option><option value="weekly" id="weekly-option" disabled>每週固定（教室適用）</option></select></label>
+            <label class="wide" id="weekday-field" hidden>每週借用日<select name="weekday" disabled><option value="1">星期一</option><option value="2">星期二</option><option value="3">星期三</option><option value="4">星期四</option><option value="5">星期五</option><option value="6">星期六</option><option value="0">星期日</option></select></label>
             <label>開始日期 *<input type="date" name="date" required></label><label>結束日期 *<input type="date" name="endDate" required></label><p class="wide help" id="hours-help">連續借用會保留起訖期間內每天的開放時段。S311 為 08:00～17:00，其餘場地為 08:00～21:00。</p><label>開始時間 *<input type="time" name="start" min="08:00" max="20:59" value="09:00" required></label><label>結束時間 *<input type="time" name="end" min="08:01" max="21:00" value="10:00" required></label>
             <label>單位名稱 *<select name="unit" required><option value="" selected disabled>請選擇單位</option></select></label><label>申請人 *<input name="applicant" placeholder="請填寫姓名" maxlength="150" required autocomplete="name"></label>
             <label>聯絡方式 *<input name="contact" placeholder="電話或分機" maxlength="150" required autocomplete="tel"></label><label>Email *<input name="email" type="email" placeholder="name@example.edu.tw" maxlength="150" required autocomplete="email"></label>
@@ -34,7 +36,7 @@
             <label>預計人數 *<input name="people" type="number" value="20" min="1" step="1" required aria-describedby="people-help"><small id="people-help" class="muted"></small></label>
             <label class="wide">備註<textarea name="notes" rows="2" placeholder="如有其他需要說明的事項，請填寫於此（選填）" maxlength="500"></textarea></label>
             <label class="wide" id="software-field" hidden>軟體需求<textarea name="software" rows="2" placeholder="請填寫所需軟體名稱及版本（選填）" maxlength="500" disabled></textarea></label>
-          </div><p class="privacy-note">個人資料僅供中心審核與聯繫，不會顯示於公開時段表。S311 軟體需求是否可提供，以中心確認為準。</p><button type="button" id="read-notice" class="secondary">閱讀借用注意事項</button><p id="notice-hint" class="help">請先閱讀注意事項至最後並確認，系統會自動勾選已讀並開放送出。</p><label class="checkbox"><input type="checkbox" id="consent" required disabled>我已閱讀並同意借用注意事項，了解核准後才可使用場地。</label><div id="submit-message" role="status" class="message"></div><button class="primary submit" type="submit" disabled>送出借用申請 <span>→</span></button></form>
+          </div><section id="weekly-panel" hidden><h3>確認每次借用日期</h3><p class="help">只借用列出的日期與時段。請取消勾選不借用的日期，再檢查衝突。期間最長一年。</p><div id="weekly-dates"></div><button type="button" id="check-weekly" class="secondary">檢查所有借用日期</button><p id="weekly-message" role="status" class="help"></p></section><p class="privacy-note">個人資料僅供中心審核與聯繫，不會顯示於公開時段表。S311 軟體需求是否可提供，以中心確認為準。</p><button type="button" id="read-notice" class="secondary">閱讀借用注意事項</button><p id="notice-hint" class="help">請先閱讀注意事項至最後並確認，系統會自動勾選已讀並開放送出。</p><label class="checkbox"><input type="checkbox" id="consent" required disabled>我已閱讀並同意借用注意事項，了解核准後才可使用場地。</label><div id="submit-message" role="status" class="message"></div><button class="primary submit" type="submit" disabled>送出借用申請 <span>→</span></button></form>
         </section>
       </div>
     </section>
@@ -48,7 +50,7 @@
   <h2>借用注意事項</h2>
   <ol>
     <li><strong>先確認課表與可借時段。</strong>請自行查詢教室課表，再查看本系統的借用時段。系統尚未串接正式教室課表，顯示可借用不代表已排除課程占用，最終以教發中心審核結果為準。</li>
-    <li><strong>一門課或一個活動，填寫一筆申請。</strong>不同課程或活動請分別申請；連續多日借用可填寫起訖日期與時間，整段期間共用一筆申請。</li>
+    <li><strong>一門課或一個活動，填寫一筆申請。</strong>不同課程或活動請分別申請；連續多日借用可填寫起訖日期與時間；S311、T520、T720 也可選每週固定，列出並確認每次日期後，以一筆申請審核。每週固定僅保留勾選日期的指定時段，取消時會取消整筆申請。</li>
     <li><strong>送出後請等候審核。</strong>請保存申請編號與查詢碼，至「申請進度查詢」查看結果。送出申請僅保留時段，不代表已核准；確認核准後才可使用。本系統採全線上申請，無須列印、簽名或繳回紙本確認單，也不適用原紙本三日繳回規定。目前不另寄申請人確認信，請自行查詢。</li>
     <li><strong>急件請另以電話告知教發中心。</strong>電話告知不代表已核准，仍須完成線上申請並確認審核結果。聯絡電話將於正式上線前公告。</li>
     <li><strong>所有教室均禁止飲食。</strong>如有違規，自下學期起不再受理其借用申請。</li>
@@ -67,3 +69,5 @@
   <div class="notice-actions"><button type="button" id="notice-cancel" class="secondary">暫不申請</button><button type="button" id="notice-finish" class="primary" disabled>已閱讀，返回申請</button></div>
 </dialog>
 </body></html>
+
+
