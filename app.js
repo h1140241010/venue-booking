@@ -4,6 +4,7 @@
   const demo = cfg.mode === 'demo';
   let room = 'N306', slots = [], revision = 0, receipt = null, pending = null, lookup = null, availabilityReady = false, availabilityMessage = '正在讀取時段…';
   let weeklyChecked = '', excludedDates = new Set(), weeklyBasis = '';
+  let maintenance = false, serviceReady = false, statusRequest = null;
   const dateInput = $('#check-date'); dateInput.min = C.today(); dateInput.value = C.today();
   const records = [
     { id: 'SAMPLE1', room: 'N306', date: C.today(), start: '10:00', end: '12:00', status: '核准' },
@@ -17,6 +18,7 @@
     if (demo) {
       await new Promise(r => setTimeout(r, 180));
       if (action === 'capabilities') return { continuousBooking: true, weeklyBooking: true };
+      if (action === 'serviceStatus') return {maintenance:!!cfg.maintenance,message:cfg.maintenanceMessage || '系統更新中，暫停受理借用申請，請稍後再來。'};
       if (action === 'previewWeekly') { C.validate(data); return C.dates(data).map(date => ({date,conflict:conflict(C.dailySlot(data,date))})); }
       if (action === 'availability') return records.filter(r => C.active(r.status)).map(r => C.dailySlot(r, data.date)).filter(Boolean);
       if (action === 'searchBookings') return records.filter(r => r.unit === data.unit && C.dailySlot(r,data.date) && (!data.room || r.room === data.room)).map(r => C.publicSlot(r.bookingType === 'weekly' ? C.dailySlot(r,data.date) : r)).sort((a,b) => a.start.localeCompare(b.start));
@@ -35,7 +37,7 @@
       const response = await fetch(cfg.apiUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, ...data }), redirect: 'follow', credentials: 'omit', signal: controller.signal });
       if (!response.ok) throw new Error('連線失敗');
       let body; try { body = await response.json(); } catch { throw new Error('服務回應無法讀取，請確認部署權限。'); }
-      if (!body.ok) throw new Error(body.error || '目前無法完成操作。'); return body.data;
+      if (!body.ok) { if(body.code === 'MAINTENANCE') applyService(body.maintenance); throw new Error(body.error || '目前無法完成操作。'); } return body.data;
     } catch (e) { if (e.name === 'AbortError' || e instanceof TypeError) throw new Error('暫時無法確認回應。若正在送出，請保留頁面並按重試，系統會避免重複建立。'); throw e; }
     finally { clearTimeout(timeout); }
   }
@@ -101,6 +103,34 @@
   function shift(days) { const d = new Date(dateInput.value + 'T12:00:00+08:00'); d.setDate(d.getDate() + days); const value = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Taipei' }).format(d); dateInput.value = value < C.today() ? C.today() : value; refresh(); }
   $('#prev-day').onclick = () => shift(-1); $('#next-day').onclick = () => shift(1);
   const form = $('#booking-form');
+  function applyService(status) {
+    const was = maintenance; maintenance = status.maintenance === true; serviceReady = true;
+    $('#application-fields').disabled = maintenance;
+    const banner = $('#service-banner'); banner.hidden = !maintenance; banner.textContent = maintenance ? status.message : '';
+    $('#maintenance-announcement').textContent = status.message || '系統更新中，請稍後再來。';
+    if(maintenance && !was) {
+      if($('#notice-dialog').open) $('#notice-dialog').close();
+      if(!$('#receipt').open) $('#maintenance-dialog').showModal();
+    }
+    if(!maintenance && $('#maintenance-dialog').open) $('#maintenance-dialog').close();
+  }
+  async function checkService() {
+    if(statusRequest) return statusRequest;
+    statusRequest = (async () => {
+      try { const status = await api('serviceStatus'); if(typeof status.maintenance !== 'boolean') throw new Error('服務狀態無法確認'); applyService(status); return !maintenance; }
+      catch(e) {
+        // The previous backend has no maintenance setting yet; keep existing service usable during rollout.
+        if(e.message === '不支援的操作。') { applyService({maintenance:false,message:''}); return true; }
+        serviceReady = false; $('#application-fields').disabled = true; $('#service-banner').hidden = false;
+        $('#service-banner').textContent = '暫時無法確認服務狀態，請稍後再試。已填寫內容保留在本頁。'; return false;
+      }
+      finally { statusRequest = null; }
+    })();
+    return statusRequest;
+  }
+  $('#maintenance-close').onclick = () => $('#maintenance-dialog').close();
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden) checkService();});
+  setInterval(()=>{if(!document.hidden) checkService();},20000);
   function bookingData() {
     const data = Object.fromEntries(new FormData(form)); Object.keys(data).forEach(k => data[k] = data[k].trim());
     Object.assign(data, {room, software:room === 'S311' ? data.software : ''});
@@ -173,6 +203,7 @@
   };
   form.onsubmit = async e => {
     e.preventDefault();
+    if (!await checkService()) return;
     if (!noticeRead || !$('#consent').checked) { openNotice(); return; }
     if (!form.reportValidity()) return;
     const button = form.querySelector('[type=submit]'), msg = $('#submit-message'); msg.textContent = ''; button.disabled = true;
@@ -194,7 +225,7 @@
       // Validation/business failures are definitive. Network/unknown replies keep the same token.
       if (/已有|必須|請選擇|完整|有效|最多|人數|上限|開放|過期/.test(error.message)) pending = null;
       msg.textContent = error.message + (pending ? `\n本次查詢碼（請保留）：${pending.token}` : '');
-    } finally { button.disabled = !noticeRead; }
+    } finally { button.disabled = !noticeRead; $('#application-fields').disabled = maintenance || !serviceReady; }
   };
   $('#copy-receipt').onclick = async () => { try { await navigator.clipboard.writeText(`申請編號：${receipt.id}\n查詢碼：${receipt.token}`); $('#copy-message').textContent = '已複製，請貼到安全的地方保存。'; } catch { $('#copy-message').textContent = '無法自動複製，請手動選取上方資訊保存。'; } };
   $('#view-receipt').onclick = () => { $('#receipt').close(); page('lookup'); $('#lookup-form [name=id]').value = receipt.id; $('#lookup-form [name=token]').value = receipt.token; $('#lookup-form').requestSubmit(); };
@@ -220,5 +251,5 @@
     } catch (err) { host.replaceChildren(el('p', err.message === '不支援的操作。' ? '單位查詢功能尚待中心更新服務，暫時請使用下方編號查詢。' : err.message, 'message')); }
     finally { button.disabled = false; }
   };
-  renderSelection(); refresh();
+  renderSelection(); refresh(); checkService();
 })();

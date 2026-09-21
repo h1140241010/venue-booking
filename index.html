@@ -4,8 +4,8 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="教發中心場地借用：查詢可借時段、線上申請及追蹤審核進度。">
   <meta name="referrer" content="no-referrer"><title>場地借用｜教發中心</title>
-  <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="styles.css">
-  <script defer src="config.js"></script><script defer src="core.js?v=weekly-1"></script><script defer src="app.js?v=weekly-1"></script>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="styles.css?v=maintenance-1">
+  <script defer src="config.js"></script><script defer src="core.js?v=weekly-1"></script><script defer src="app.js?v=maintenance-1"></script>
 </head>
 <body>
 <header class="header"><a class="brand" href="#" aria-label="教發中心場地借用首頁"><span class="brand-icon">教</span><span>教學發展中心<small>CENTER FOR TEACHING & LEARNING</small></span></a><div class="header-contact">聯絡單位：教發中心<br>聯絡分機：工讀生 3034</div></header>
@@ -25,7 +25,7 @@
           <p class="help">「有人送出申請未審核」表示申請已送出、時段已保留，核准後才可使用。「已借出」表示已核准。兩者均不接受重複申請，相鄰時段可以借用。</p>
         </section>
         <section class="card application"><div class="card-heading"><div><p class="eyebrow">NEW REQUEST</p><h2>填寫借用申請</h2></div><span class="muted small">* 必填</span></div>
-          <form id="booking-form"><div class="selection-summary"><span id="form-room">N306</span><span id="form-date"></span></div><div class="form-grid">
+          <div id="service-banner" role="status" hidden></div><form id="booking-form"><fieldset id="application-fields" disabled><div class="selection-summary"><span id="form-room">N306</span><span id="form-date"></span></div><div class="form-grid">
             <label class="wide">借用方式<select name="bookingType"><option value="continuous">單次／連續多日</option><option value="weekly" id="weekly-option" disabled>每週固定（教室適用）</option></select></label>
             <label class="wide" id="weekday-field" hidden>每週借用日<select name="weekday" disabled><option value="1">星期一</option><option value="2">星期二</option><option value="3">星期三</option><option value="4">星期四</option><option value="5">星期五</option><option value="6">星期六</option><option value="0">星期日</option></select></label>
             <label>開始日期 *<input type="date" name="date" required></label><label>結束日期 *<input type="date" name="endDate" required></label><p class="wide help" id="hours-help">連續借用會保留起訖期間內每天的開放時段。S311 為 08:00～17:00，其餘場地為 08:00～21:00。</p><label>開始時間 *<input type="time" name="start" min="08:00" max="20:59" value="09:00" required></label><label>結束時間 *<input type="time" name="end" min="08:01" max="21:00" value="10:00" required></label>
@@ -36,7 +36,7 @@
             <label>預計人數 *<input name="people" type="number" value="20" min="1" step="1" required aria-describedby="people-help"><small id="people-help" class="muted"></small></label>
             <label class="wide">備註<textarea name="notes" rows="2" placeholder="如有其他需要說明的事項，請填寫於此（選填）" maxlength="500"></textarea></label>
             <label class="wide" id="software-field" hidden>軟體需求<textarea name="software" rows="2" placeholder="請填寫所需軟體名稱及版本（選填）" maxlength="500" disabled></textarea></label>
-          </div><section id="weekly-panel" hidden><h3>確認每次借用日期</h3><p class="help">只借用列出的日期與時段。請取消勾選不借用的日期，再檢查衝突。期間最長一年。</p><div id="weekly-dates"></div><button type="button" id="check-weekly" class="secondary">檢查所有借用日期</button><p id="weekly-message" role="status" class="help"></p></section><p class="privacy-note">個人資料僅供中心審核與聯繫，不會顯示於公開時段表。S311 軟體需求是否可提供，以中心確認為準。</p><button type="button" id="read-notice" class="secondary">閱讀借用注意事項</button><p id="notice-hint" class="help">請先閱讀注意事項至最後並確認，系統會自動勾選已讀並開放送出。</p><label class="checkbox"><input type="checkbox" id="consent" required disabled>我已閱讀並同意借用注意事項，了解核准後才可使用場地。</label><div id="submit-message" role="status" class="message"></div><button class="primary submit" type="submit" disabled>送出借用申請 <span>→</span></button></form>
+          </div><section id="weekly-panel" hidden><h3>確認每次借用日期</h3><p class="help">只借用列出的日期與時段。請取消勾選不借用的日期，再檢查衝突。期間最長一年。</p><div id="weekly-dates"></div><button type="button" id="check-weekly" class="secondary">檢查所有借用日期</button><p id="weekly-message" role="status" class="help"></p></section><p class="privacy-note">個人資料僅供中心審核與聯繫，不會顯示於公開時段表。S311 軟體需求是否可提供，以中心確認為準。</p><button type="button" id="read-notice" class="secondary">閱讀借用注意事項</button><p id="notice-hint" class="help">請先閱讀注意事項至最後並確認，系統會自動勾選已讀並開放送出。</p><label class="checkbox"><input type="checkbox" id="consent" required disabled>我已閱讀並同意借用注意事項，了解核准後才可使用場地。</label><div id="submit-message" role="status" class="message"></div><button class="primary submit" type="submit" disabled>送出借用申請 <span>→</span></button></fieldset></form>
         </section>
       </div>
     </section>
@@ -68,6 +68,8 @@
   <div id="notice-scroll" class="prose" tabindex="0" role="region" aria-label="借用注意事項全文"></div>
   <div class="notice-actions"><button type="button" id="notice-cancel" class="secondary">暫不申請</button><button type="button" id="notice-finish" class="primary" disabled>已閱讀，返回申請</button></div>
 </dialog>
-</body></html>
+<dialog id="maintenance-dialog" aria-labelledby="maintenance-title"><img src="quokka-maintenance.png" alt="戴安全帽的短袋鼠正在修理日曆" width="280" height="280"><h2 id="maintenance-title">短袋鼠正在努力施工中！</h2><p id="maintenance-announcement"></p><p class="help">暫停填寫與送出申請，仍可查看場地與申請進度。原本填寫的內容會保留在本頁。</p><button type="button" id="maintenance-close" class="primary">知道了，繼續查詢</button></dialog></body></html>
+
+
 
 
