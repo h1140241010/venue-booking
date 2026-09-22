@@ -5,6 +5,7 @@
   let room = 'N306', slots = [], revision = 0, receipt = null, pending = null, lookup = null, availabilityReady = false, availabilityMessage = '正在讀取時段…';
   let weeklyChecked = '', excludedDates = new Set(), weeklyBasis = '';
   let maintenance = false, serviceReady = false, statusRequest = null;
+  const availabilityRequests = new Map();
   const dateInput = $('#check-date'); dateInput.min = C.today(); dateInput.value = C.today();
   const records = [
     { id: 'SAMPLE1', room: 'N306', date: C.today(), start: '10:00', end: '12:00', status: '核准' },
@@ -32,7 +33,7 @@
       throw new Error('不支援的操作。');
     }
     if (cfg.mode !== 'live' || !/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(cfg.apiUrl)) throw new Error('正式服務尚未設定完成，請聯繫中心。');
-    const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 45000);
+    const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), action === 'serviceStatus' ? 20000 : 45000);
     try {
       const response = await fetch(cfg.apiUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, ...data }), redirect: 'follow', credentials: 'omit', signal: controller.signal });
       if (!response.ok) throw new Error('連線失敗');
@@ -51,7 +52,7 @@
     const info = C.roomInfo[code];
     const bottom = el('span', null, 'room-bottom'); bottom.append(el('span', info.type), el('span', '選擇 →')); b.append(bottom);
     if (info.capacity !== null) b.append(el('small', `容納 ${info.capacity} 人`, 'room-capacity'));
-    b.onclick = () => { room = code; renderSelection(); renderSlots(); }; $('#rooms').append(b);
+    b.onclick = () => { if(room === code) return; room = code; refresh(); }; $('#rooms').append(b);
   });
   function renderSelection() {
     document.querySelectorAll('.room-card').forEach(b => { b.classList.toggle('active', b.dataset.room === room); b.setAttribute('aria-pressed', String(b.dataset.room === room)); });
@@ -96,7 +97,13 @@
   async function refresh() {
     const version = ++revision; availabilityReady = false; availabilityMessage = '正在讀取時段…'; renderSelection();
     $('#schedule').replaceChildren(el('p', '正在讀取時段…', 'empty'));
-    try { if (!C.dateValid(dateInput.value) || dateInput.value < C.today()) throw new Error('請選擇今天或之後的日期。'); const result = await api('availability', { date: dateInput.value }); if (version !== revision) return; slots = result; availabilityReady = true; renderSlots(); }
+    try {
+      if (!C.dateValid(dateInput.value) || dateInput.value < C.today()) throw new Error('請選擇今天或之後的日期。');
+      const query = { date:dateInput.value, room }, key = JSON.stringify(query);
+      if(!availabilityRequests.has(key)) availabilityRequests.set(key,api('availability',query).finally(()=>availabilityRequests.delete(key)));
+      const result = await availabilityRequests.get(key); if (version !== revision) return;
+      slots = result; availabilityReady = true; renderSlots();
+    }
     catch (e) { if (version === revision) { slots = []; availabilityMessage = e.message; $('#schedule').replaceChildren(el('p', e.message, 'message')); } }
   }
   dateInput.onchange = refresh; $('#refresh').onclick = refresh;
@@ -106,7 +113,7 @@
   function applyService(status) {
     const was = maintenance; maintenance = status.maintenance === true; serviceReady = true;
     $('#application-fields').disabled = maintenance;
-    const banner = $('#service-banner'); banner.hidden = !maintenance; banner.textContent = maintenance ? status.message : '';
+    const banner = $('#service-banner'); banner.hidden = !maintenance; banner.textContent = maintenance ? status.message : ''; $('#retry-service').hidden = true;
     $('#maintenance-announcement').textContent = status.message || '系統更新中，請稍後再來。';
     if(maintenance && !was) {
       if($('#notice-dialog').open) $('#notice-dialog').close();
@@ -121,16 +128,17 @@
       catch(e) {
         // The previous backend has no maintenance setting yet; keep existing service usable during rollout.
         if(e.message === '不支援的操作。') { applyService({maintenance:false,message:''}); return true; }
-        serviceReady = false; $('#application-fields').disabled = true; $('#service-banner').hidden = false;
-        $('#service-banner').textContent = '暫時無法確認服務狀態，請稍後再試。已填寫內容保留在本頁。'; return false;
+        serviceReady = false; $('#application-fields').disabled = maintenance; $('#service-banner').hidden = false; $('#retry-service').hidden = false;
+        $('#service-banner').textContent = maintenance ? '目前仍為維護中，連線恢復後再確認是否開放。' : '連線暫時不穩，可先繼續填寫；送出前會重新確認服務狀態。請保留本頁，避免遺失內容。'; return false;
       }
       finally { statusRequest = null; }
     })();
     return statusRequest;
   }
   $('#maintenance-close').onclick = () => $('#maintenance-dialog').close();
+  $('#retry-service').onclick = async () => { const b=$('#retry-service'); b.disabled=true; try { await checkService(); } finally {b.disabled=false;} };
   document.addEventListener('visibilitychange',()=>{if(!document.hidden) checkService();});
-  setInterval(()=>{if(!document.hidden) checkService();},20000);
+  setInterval(()=>{if(!document.hidden) checkService();},120000);
   function bookingData() {
     const data = Object.fromEntries(new FormData(form)); Object.keys(data).forEach(k => data[k] = data[k].trim());
     Object.assign(data, {room, software:room === 'S311' ? data.software : ''});
@@ -225,7 +233,7 @@
       // Validation/business failures are definitive. Network/unknown replies keep the same token.
       if (/已有|必須|請選擇|完整|有效|最多|人數|上限|開放|過期/.test(error.message)) pending = null;
       msg.textContent = error.message + (pending ? `\n本次查詢碼（請保留）：${pending.token}` : '');
-    } finally { button.disabled = !noticeRead; $('#application-fields').disabled = maintenance || !serviceReady; }
+    } finally { button.disabled = !noticeRead; $('#application-fields').disabled = maintenance; }
   };
   $('#copy-receipt').onclick = async () => { try { await navigator.clipboard.writeText(`申請編號：${receipt.id}\n查詢碼：${receipt.token}`); $('#copy-message').textContent = '已複製，請貼到安全的地方保存。'; } catch { $('#copy-message').textContent = '無法自動複製，請手動選取上方資訊保存。'; } };
   $('#view-receipt').onclick = () => { $('#receipt').close(); page('lookup'); $('#lookup-form [name=id]').value = receipt.id; $('#lookup-form [name=token]').value = receipt.token; $('#lookup-form').requestSubmit(); };
